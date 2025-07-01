@@ -1,24 +1,44 @@
 const fetch = require("node-fetch");
+const AbortController = require("abort-controller");
+
+async function fetchWithTimeout(url, options = {}, timeout = 7000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  options.signal = controller.signal;
+
+  try {
+    const res = await fetch(url, options);
+    clearTimeout(id);
+    return res;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
 
 module.exports = async function itsAI(text, options = {}) {
   const {
     userId = "anon",
-    prompt = "kamu jago roasting, suka sarkas dan satir,kamu palimg ga suka sama orang toxic/berkata kasar, klo ada org toxic, sarkasin aja sampe kena mental, karna itu akibat dia berkata kasar, pake gaya gen Z, tidak memakai emoji alay, emoji psatir biasanya ini 😹, 😥, 🤭, 🥴, jangan kasi ampun"
+    prompt = "kamu jago roasting, suka sarkas dan satir, kamu paling ga suka sama orang toxic/berkata kasar..."
   } = options;
 
   try {
-    const res = await fetch("https://luminai.my.id/", {
+    const res = await fetchWithTimeout("https://luminai.my.id/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: text, user: userId, prompt })
-    });
+    }, 7000);
+
+    if (!res.ok) throw new Error();
+
     const data = await res.json();
     const reply = data.result || data.message;
-    if (reply) return reply;
+    const isError = !reply || /kesalahan|error|silakan coba/i.test(reply);
+    if (!isError) return reply;
   } catch (e) {}
 
   try {
-    const res = await fetch("https://text.pollinations.ai/openai", {
+    const res = await fetchWithTimeout("https://text.pollinations.ai/openai", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -28,7 +48,10 @@ module.exports = async function itsAI(text, options = {}) {
           { role: "user", content: text }
         ]
       })
-    });
+    }, 7000);
+
+    if (!res.ok) throw new Error();
+
     const data = await res.json();
     const reply = data.choices?.[0]?.message?.content;
     if (reply) return reply;
@@ -36,11 +59,14 @@ module.exports = async function itsAI(text, options = {}) {
 
   try {
     const input = `[SISTEM]: ${prompt}\n[USER]: ${text}`;
-    const res = await fetch(`https://www.kazeai.site/api/v1?text=${encodeURIComponent(input)}`);
+    const res = await fetchWithTimeout(`https://www.kazeai.site/api/v1?text=${encodeURIComponent(input)}`, {}, 7000);
+
+    if (!res.ok) throw new Error();
+
     const data = await res.json();
     const reply = data.response;
     if (reply) return reply;
   } catch (e) {}
 
-  return "Maaf, AI tidak bisa menjawab saat ini.";
+  return "Maaf, AI tidak dapat merespon.";
 };
