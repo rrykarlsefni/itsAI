@@ -9,6 +9,7 @@
   "author": "rrykarlsefni",
   "license": "MIT",
   "dependencies": {
-    "node-fetch": "^2.6.7"
+    "node-fetch": "^2.6.7",
+    "abort-controller": "^3.0.0"
   }
 }
